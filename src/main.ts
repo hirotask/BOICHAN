@@ -1,10 +1,12 @@
 //必要なパッケージをインポートする
 import { GatewayIntentBits, Client, Partials, Message, Snowflake, User } from 'discord.js'
-import { joinVoiceChannel, VoiceConnection, createAudioPlayer, EndBehaviorType, VoiceReceiver } from '@discordjs/voice'
+import { joinVoiceChannel, VoiceConnection, createAudioPlayer, EndBehaviorType, VoiceReceiver, AudioReceiveStream, createAudioResource, StreamType } from '@discordjs/voice'
+import { OpusEncoder } from '@discordjs/opus'
 import dotenv from 'dotenv'
-import { createWriteStream } from 'fs'
-import { opus } from 'prism-media'
-import { pipeline } from 'stream'
+import * as WavEncoder from 'wav-encoder'
+import { writeFileSync } from 'fs'
+import { PassThrough } from 'stream'
+import * as Prism from 'prism-media'
 
 //.envファイルを読み込む
 dotenv.config()
@@ -74,18 +76,57 @@ client.on('messageCreate', async (message: Message) => {
                         duration: 100
                     }
                 })
-                const fileName = './rec/'.concat(Date.now().toString(), '-').concat(userId, '.bat')
-                const out = createWriteStream(fileName)
-
-                pipeline(opusStream, out, function (err) {
-                    if (err) {
-                        console.warn(`❌ Error recording file ${fileName} - ${err.message}`);
-                    } else {
-                        console.log(`✅ Recorded ${fileName}`);
-                    }
-                })
-
                 message.channel.send('録音を開始します')
+
+                const rawStream = new PassThrough()
+
+                opusStream.pipe(new Prism.opus.Decoder({ rate: 48000, channels: 2, frameSize: 960 })).pipe(rawStream)
+
+                // const leftOpusStream: Promise<Buffer>[] = [];
+                // const rightOpusStream: Promise<Buffer>[] = [];
+
+                // let isLeftChannel = true; // 初めは左チャンネル
+
+                // opusStream.on('data', (chunk) => {
+
+                //     const decodedChunk = decodeOpus(chunk);
+
+                //     if (isLeftChannel) {
+                //         leftOpusStream.push(decodedChunk);
+                //     } else {
+                //         rightOpusStream.push(decodedChunk);
+                //     }
+
+                //     isLeftChannel = !isLeftChannel; // チャンネルを切り替える
+                // });
+
+                opusStream.on('end', async () => {
+                    console.log(`Stream from user ${userId} has ended`);
+
+                    const resource = createAudioResource(rawStream, {
+                        inputType: StreamType.Raw
+                    })
+                    player.play(resource)
+
+                    // const leftPcmDataArray = await Promise.all(leftOpusStream);
+                    // const leftConcatenatedBuffer = Buffer.concat(leftPcmDataArray);
+                    // const rightPcmDataArray = await Promise.all(rightOpusStream);
+                    // const rightConcatenatedBuffer = Buffer.concat(rightPcmDataArray);
+
+                    // const fileName = './rec/'.concat(Date.now().toString(), '-').concat(userId, '.wav')
+
+                    // const arr1 = new Float32Array(leftConcatenatedBuffer.buffer);
+                    // const arr2 = new Float32Array(rightConcatenatedBuffer.buffer);
+                    // const data = {
+                    //     sampleRate: 4800,
+                    //     channels: 2,
+                    //     channelData: [arr1, arr2]
+                    // }
+
+                    // WavEncoder.encode(data).then((buffer) => {
+                    //     writeFileSync(fileName, Buffer.from(buffer), { encoding: "binary" })
+                    // })
+                })
 
                 //TODO: 音声を取得して、WAV形式に変換する
                 //TODO: WAV形式の音声をWhisperAPIに送信する
@@ -109,6 +150,15 @@ client.on('messageCreate', async (message: Message) => {
     }
 
 })
+
+async function decodeOpus(opusStream: Buffer): Promise<Buffer> {
+    //OpusからPCMへ変換をする
+    return new Promise((resolve, reject) => {
+        const opusDecoder = new OpusEncoder(48000, 2);
+        const pcmData = opusDecoder.decode(opusStream);
+        resolve(pcmData);
+    });
+}
 
 //ボット作成時のトークンでDiscordと接続
 client.login(process.env.TOKEN)
