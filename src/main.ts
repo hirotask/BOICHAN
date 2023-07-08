@@ -1,7 +1,10 @@
 //必要なパッケージをインポートする
-import { GatewayIntentBits, Client, Partials, Message, Snowflake } from 'discord.js'
-import { joinVoiceChannel, VoiceConnection, createAudioPlayer, EndBehaviorType } from '@discordjs/voice'
+import { GatewayIntentBits, Client, Partials, Message, Snowflake, User } from 'discord.js'
+import { joinVoiceChannel, VoiceConnection, createAudioPlayer, EndBehaviorType, VoiceReceiver } from '@discordjs/voice'
 import dotenv from 'dotenv'
+import { createWriteStream } from 'fs'
+import { opus } from 'prism-media'
+import { pipeline } from 'stream'
 
 //.envファイルを読み込む
 dotenv.config()
@@ -58,12 +61,32 @@ client.on('messageCreate', async (message: Message) => {
             const receiver = connection.receiver;
 
             receiver.speaking.on("start", (userId) => {
-                const audioStream = receiver.subscribe(userId, {
+                // const audioStream = receiver.subscribe(userId, {
+                //     end: {
+                //         behavior: EndBehaviorType.AfterSilence,
+                //         duration: 10
+                //     }
+                // });
+
+                const opusStream = receiver.subscribe(userId, {
                     end: {
                         behavior: EndBehaviorType.AfterSilence,
-                        duration: 10
+                        duration: 100
                     }
-                });
+                })
+                const fileName = './rec/'.concat(Date.now().toString(), '-').concat(userId, '.bat')
+                const out = createWriteStream(fileName)
+
+                pipeline(opusStream, out, function (err) {
+                    if (err) {
+                        console.warn(`❌ Error recording file ${fileName} - ${err.message}`);
+                    } else {
+                        console.log(`✅ Recorded ${fileName}`);
+                    }
+                })
+
+                message.channel.send('録音を開始します')
+
                 //TODO: 音声を取得して、WAV形式に変換する
                 //TODO: WAV形式の音声をWhisperAPIに送信する
             });
