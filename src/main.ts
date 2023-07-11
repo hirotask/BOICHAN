@@ -1,5 +1,5 @@
 //必要なパッケージをインポートする
-import { GatewayIntentBits, Client, Partials, Events } from 'discord.js'
+import { GatewayIntentBits, Client, Partials, Events, EmbedBuilder } from 'discord.js'
 import { joinVoiceChannel } from '@discordjs/voice'
 import dotenv from 'dotenv'
 import { SpeechEvents, addSpeechEvent, resolveSpeechWithGoogleSpeechV2 } from 'discord-speech-recognition'
@@ -28,10 +28,6 @@ client.once('ready', () => {
     }
 })
 
-const start_commands = ["議事録取って", "議事録開始", "!start"];
-const stop_commands = ["議事録とめて", "議事録終了", "!stop"];
-
-
 addSpeechEvent(client, {
     lang: "ja-JP",
     speechRecognition: resolveSpeechWithGoogleSpeechV2,
@@ -48,6 +44,8 @@ client.on(Events.MessageCreate, (msg) => {
             adapterCreator: voiceChannel.guild.voiceAdapterCreator,
             selfDeaf: false,
         });
+
+
     }
 });
 
@@ -55,8 +53,12 @@ client.on(SpeechEvents.speech, (msg) => {
     // If bot didn't recognize speech, content will be empty
     if (!msg.content) return;
 
-    console.log(msg.content);
-    msg.channel.send(msg.content);
+    const embedMsg = new EmbedBuilder()
+        .setColor(0x0099FF)
+        .setAuthor({ name: msg.author.username, iconURL: msg.author.avatarURL() })
+        .setDescription(msg.content)
+
+    msg.channel.send({ embeds: [embedMsg] });
 });
 
 //ボット作成時のトークンでDiscordと接続
