@@ -6,7 +6,8 @@
   "scripts": {
     "test": "ts-node src/main.ts",
     "start": "node build/main.js",
-    "compile": "tsc -p ."
+    "compile": "tsc -p .",
+    "deploy": "tsc -p . && node build/main.js"
   },
   "keywords": [],
   "author": "",
