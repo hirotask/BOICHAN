@@ -6,7 +6,7 @@ RUN apt-get -y update\
     && apt-get -y upgrade\
     && apt-get install -y ffmpeg
 
-COPY package*.json ./
+COPY . ./
 RUN npm install
 
 CMD ["npm", "run", "deploy"]
